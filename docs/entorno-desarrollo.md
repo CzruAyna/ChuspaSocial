@@ -206,3 +206,121 @@ La directiva `max_input_vars` de PHP está configurada con un valor menor que `5
 
 El valor efectivo debe ser `5000` o superior.
 
+### Error de extensiones de PHP faltantes
+
+#### Síntoma
+
+Al ejecutar un comando de Composer (por ejemplo `composer install` o `composer diagnose`) aparece el mensaje:
+
+```text
+In Factory.php line 656:
+
+  The openssl extension is required for SSL/TLS protection but is not available. If you can not enable the openssl extension, you can disable this error, at your own risk, by setting the 'disable-tls' option to true.
+```
+
+El mensaje cambia según la extensión que falte, pero siempre indica su nombre.
+
+#### Causa
+
+La extensión de PHP requerida no está instalada o está comentada (con `;` al inicio) en el archivo `php.ini`.
+
+#### Cómo detectarlas
+
+1. Lista las extensiones cargadas:
+
+   ```bash
+   php -m
+   ```
+
+2. Busca una en concreto:
+
+   ```bash
+   php -m | grep -i openssl
+   ```
+
+   En Windows (CMD) usa `php -m | findstr /i openssl`.
+
+3. Comprueba qué extensiones exige el proyecto:
+
+   ```bash
+   composer check-platform-reqs
+   ```
+
+Si la extensión no aparece en la lista, está deshabilitada o no instalada.
+
+#### Solución
+
+1. Localiza el `php.ini` que usa PHP:
+
+   ```bash
+   php --ini
+   ```
+
+2. Ábrelo y quita el `;` del inicio de la línea de la extensión:
+
+   ```ini
+   extension=openssl
+   ```
+
+3. Guarda el archivo y abre una terminal nueva para aplicar el cambio.
+4. Verifica que ya aparece con `php -m`.
+
+En Linux, si la extensión no está instalada, instálala con el gestor de paquetes (por ejemplo `sudo apt install php-mbstring`).
+### Error `dataroot not writable`
+
+#### Síntoma
+
+Durante la instalación o al abrir Moodle, aparece el mensaje:
+
+`Fatal error: $CFG->dataroot is not writable, admin has to fix directory permissions! Exiting.`
+
+#### Causa
+
+Moodle no puede escribir en la carpeta `moodledata`. Puede ocurrir porque la carpeta no existe, porque la ruta indicada en `--dataroot` (o en `$CFG->dataroot` de `config.php`) es incorrecta, o porque el usuario con el que corre Apache no tiene permisos de escritura sobre ella.
+
+#### Solución
+
+#### En Windows
+
+1. Comprueba que la carpeta existe y que la ruta coincide con la de `config.php`:
+
+   ```powershell
+   Test-Path C:\xampp\moodledata
+   ```
+
+   Si responde `False`, créala con `mkdir C:\xampp\moodledata`.
+
+2. Haz clic derecho en `C:\xampp\moodledata` > **Propiedades** > **Seguridad** > **Editar**.
+3. Selecciona el grupo `Users` (o el usuario con el que corre Apache) y marca **Modificar**.
+4. Aplica los cambios y reinicia **Apache** desde el XAMPP Control Panel.
+5. Verifica el permiso. Debe aparecer `Modify` o `FullControl`:
+
+   ```powershell
+   icacls C:\xampp\moodledata
+   ```
+
+#### En Linux
+
+1. Crea la carpeta si no existe y asigna el usuario del servidor web (`www-data` en Debian/Ubuntu, `apache` en Fedora/RHEL):
+
+   ```bash
+   sudo mkdir -p /var/www/moodledata
+   sudo chown -R www-data:www-data /var/www/moodledata
+   sudo chmod -R 775 /var/www/moodledata
+   ```
+
+2. Reinicia el servidor web (por ejemplo, `sudo systemctl restart apache2`).
+
+#### En macOS
+
+1. Crea la carpeta y da permisos al usuario del servidor web (`_www` con el Apache del sistema; con XAMPP o MAMP suele ser `daemon`):
+
+   ```bash
+   sudo mkdir -p /usr/local/moodledata
+   sudo chown -R _www:_www /usr/local/moodledata
+   sudo chmod -R 775 /usr/local/moodledata
+   ```
+
+2. Reinicia Apache.
+
+La carpeta `moodledata` debe estar **fuera** de `htdocs`.

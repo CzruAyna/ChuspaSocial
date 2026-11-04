@@ -68,4 +68,11 @@ if ($ADMIN->fulltree) {
         2000,
         PARAM_INT
     ));
+    $settings->add(new admin_setting_configtext(
+        'local_chuspasocial/maxpostimages',
+        new lang_string('maxpostimages', 'local_chuspasocial'),
+        new lang_string('maxpostimages_desc', 'local_chuspasocial'),
+        4,
+        PARAM_INT
+    ));
 }

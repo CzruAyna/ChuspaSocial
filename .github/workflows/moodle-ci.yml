@@ -15,6 +15,17 @@ jobs:
     name: Install and validate Moodle plugin
     runs-on: ubuntu-latest
 
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - db-type: pgsql
+            db-user: postgres
+            db-pass: moodle
+          - db-type: mariadb
+            db-user: root
+            db-pass: moodle
+
     services:
       postgres:
         image: postgres:15
@@ -25,6 +36,17 @@ jobs:
           - 5432:5432
         options: >-
           --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MYSQL_ROOT_PASSWORD: moodle
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
@@ -39,7 +61,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.1'
-          extensions: pgsql, intl, mbstring, xml, zip, gd, curl, soap
+          extensions: pgsql, mysqli, intl, mbstring, xml, zip, gd, curl, soap
           coverage: none
 
       - name: Install moodle-plugin-ci
@@ -54,17 +76,54 @@ jobs:
         run: |
           moodle-plugin-ci install \
             --plugin ./plugin/src \
-            --db-type=pgsql \
+            --db-type=${{ matrix.db-type }} \
             --db-host=127.0.0.1 \
-            --db-user=postgres \
-            --db-pass=moodle \
+            --db-user=${{ matrix.db-user }} \
+            --db-pass=${{ matrix.db-pass }} \
             --db-name=moodle
         env:
-          DB: pgsql
+          DB: ${{ matrix.db-type }}
+          MOODLE_BRANCH: MOODLE_405_STABLE
+
+      - name: Run phplint
+        if: ${{ !cancelled() }}
+        run: moodle-plugin-ci phplint ./plugin/src
+        env:
+          MOODLE_BRANCH: MOODLE_405_STABLE
+
+      - name: Run mustache
+        if: ${{ !cancelled() }}
+        run: moodle-plugin-ci mustache ./plugin/src
+        env:
+          MOODLE_BRANCH: MOODLE_405_STABLE
+
+      - name: Run phpdoc
+        if: ${{ !cancelled() }}
+        run: moodle-plugin-ci phpdoc --max-warnings 0 ./plugin/src
+        env:
+          MOODLE_BRANCH: MOODLE_405_STABLE
+
+      - name: Validate plugin structure
+        if: ${{ !cancelled() }}
+        run: moodle-plugin-ci validate ./plugin/src
+        env:
           MOODLE_BRANCH: MOODLE_405_STABLE
 
       - name: Validate upgrade savepoints
+        if: ${{ !cancelled() }}
         run: moodle-plugin-ci savepoints ./plugin/src
+        env:
+          MOODLE_BRANCH: MOODLE_405_STABLE
+
+      - name: Run grunt
+        if: ${{ !cancelled() }}
+        run: moodle-plugin-ci grunt --max-lint-warnings 0 ./plugin/src
+        env:
+          MOODLE_BRANCH: MOODLE_405_STABLE
+
+      - name: Run behat
+        if: ${{ !cancelled() }}
+        run: moodle-plugin-ci behat --profile chrome ./plugin/src
         env:
           MOODLE_BRANCH: MOODLE_405_STABLE
 

@@ -6,11 +6,13 @@ Verificar que el plugin `local_chuspasocial` para Moodle 4.5 LTS cumple sus requ
 
 ## 2. Alcance
 ### En alcance
-- Muro social: publicaciones con texto e imágenes, comentarios y reacciones.
+- Muro social general y por materia: publicaciones con texto e imágenes; el muro por materia solo es visible para usuarios inscritos en el curso.
+- Comentarios y reacciones: creación, visualización y gestión de comentarios y reacciones asociados a publicaciones, respetando los permisos.
 - Muro por materia: visibilidad restringida a los inscritos en el curso.
 - Tags / hashtags: etiquetar publicaciones, seguir temas y filtrar el muro.
 - Seguir a otros usuarios y ver su perfil social.
 - Noticias según tags (publicaciones de usuarios, anuncios oficiales y actividad de Moodle).
+- Eventos: consulta y visualización de eventos del plugin, verificando su información y visibilidad según los permisos correspondientes.
 - Notificaciones (comentarios, reacciones, nuevos seguidores) y mensajes directos.
 - Reporte de contenido inapropiado.
 - Marketplace de libros: anuncios con precio vinculados a una o varias materias, y contacto con el vendedor.
@@ -42,6 +44,12 @@ Verificar que el plugin `local_chuspasocial` para Moodle 4.5 LTS cumple sus requ
 |---|---|---|
 | Local | | |
 | CI | Ubuntu latest | |
+
+### Dependencias
+- Moodle 4.5 LTS con `local_chuspasocial` instalado y habilitado.
+- PHP 8.1 a 8.3 y MariaDB, MySQL o PostgreSQL.
+- Usuarios de prueba con roles, capacidades y matrículas diferenciadas; cursos y datos de ejemplo para publicaciones, comentarios, eventos y anuncios.
+- Herramientas de pruebas automatizadas disponibles en CI: PHPUnit, Behat y `moodle-plugin-ci`.
 
 ## 5. Responsables
 

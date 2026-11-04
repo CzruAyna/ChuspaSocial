@@ -60,4 +60,28 @@ class listing_created extends \core\event\base {
     public function get_description() {
         return "The user with id '$this->userid' created the listing with id '$this->objectid'.";
     }
+
+    /**
+     * Returns the URL of the created listing.
+     *
+     * @return \moodle_url
+     */
+    public function get_url() {
+        return new \moodle_url('/local/chuspasocial/listing.php', [
+            'id' => $this->objectid,
+        ]);
+    }
+
+    /**
+     * Validates the event data.
+     *
+     * @return void
+     */
+    protected function validate_data() {
+        parent::validate_data();
+
+        if (empty($this->data['objectid'])) {
+            throw new \coding_exception('The listing ID must be set.');
+        }
+    }
 }

@@ -24,6 +24,7 @@
 
     Data attributes required for JS:
     * data-postid
+    * data-action=report
 
     Context variables required for this template:
     * id - Post id.
@@ -31,6 +32,12 @@
     * authorpictureurl - URL of the author profile picture.
     * timecreated - Unix timestamp of the post.
     * content - Post content, already formatted with format_text().
+    * isannouncement - Boolean, true when the post type is announcement.
+    * postid - Id of this post (same as id), passed to the comments template.
+    * comments - List of comments, using the local_chuspasocial/comments context.
+    * tags - List of tags of the post. Each one has:
+        * name - Tag name.
+        * url - URL of the tag page.
 
     Example context (json):
     {
@@ -38,11 +45,31 @@
         "authorname": "Ana Pérez",
         "authorpictureurl": "https://example.com/pix/u/f2.png",
         "timecreated": 1760000000,
-        "content": "<p>Vendo mi libro de Cálculo I, casi nuevo.</p>"
+        "content": "<p>La biblioteca abre hasta las 20:00.</p>",
+        "isannouncement": true,
+        "postid": 1,
+        "comments": [
+            {
+                "id": 10,
+                "authorname": "Luis Mamani",
+                "timecreated": 1760003600,
+                "content": "<p>Gracias por el aviso.</p>"
+            }
+        ],
+        "tags": [
+            {"name": "calculo", "url": "https://example.com/tag/index.php?tag=calculo"},
+            {"name": "venta", "url": "https://example.com/tag/index.php?tag=venta"}
+        ]
     }
 }}
-<article class="card mb-3 post-item" data-postid="{{id}}">
+<article class="card mb-3 post-item{{#isannouncement}} local-chuspasocial-announcement{{/isannouncement}}" data-postid="{{id}}">
     <div class="card-body">
+        {{#isannouncement}}
+        <div class="mb-2 font-weight-bold">
+            {{#pix}} i/bullhorn, core {{/pix}}
+            Anuncio oficial
+        </div>
+        {{/isannouncement}}
         <div class="d-flex align-items-center mb-2">
             <img src="{{authorpictureurl}}" class="rounded-circle mr-2" width="35" height="35" alt="">
             <div>
@@ -51,5 +78,28 @@
             </div>
         </div>
         <div class="card-text">{{{content}}}</div>
+        {{#tags.0}}
+        <div class="mt-2">
+            <span class="sr-only">{{#str}} tags, core_tag {{/str}}</span>
+            {{#tags}}
+            <a href="{{url}}" class="badge badge-info mr-1">{{name}}</a>
+            {{/tags}}
+        </div>
+        {{/tags.0}}
+
+        <div class="post-images d-flex flex-wrap mt-3">
+            {{#images}}
+            <img src="{{url}}"
+                 class="img-fluid rounded m-1"
+                 alt="{{filename}}"
+                 loading="lazy">
+            {{/images}}
+        </div>
+
+        <button type="button" class="btn btn-link mt-2" data-action="report" data-postid="{{id}}"
+                aria-label="{{#str}} chuspasocial:report, local_chuspasocial {{/str}}">
+            {{#str}} chuspasocial:report, local_chuspasocial {{/str}}
+        </button>
+        {{> local_chuspasocial/comments}}
     </div>
 </article>

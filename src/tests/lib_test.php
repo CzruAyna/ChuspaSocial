@@ -2,33 +2,175 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+require_once($CFG->dirroot . '/local/chuspasocial/lib.php');
+
 class local_chuspasocial_lib_test extends \advanced_testcase {
 
-    public function test_pluginfile_bloquea_usuario_no_inscrito() {
+    /**
+     * Verifica que pluginfile rechace areas no permitidas.
+     */
+    public function test_pluginfile_rechaza_area_no_permitida() {
         $this->resetAfterTest();
 
-        // 1. Crear un curso y un usuario (el usuario NO será inscrito en este curso)
         $course = $this->getDataGenerator()->create_course();
         $user = $this->getDataGenerator()->create_user();
         $context = \context_course::instance($course->id);
 
-        // 2. Forzar la sesión con el usuario ajeno a la materia
         $this->setUser($user);
 
-        // 3. Configurar los argumentos falsos simulando la URL de una imagen
-        $filearea = 'post';
-        $args = ['1', 'imagen_privada.png']; // Ejemplo: [postid, filename]
-        $forcedownload = false;
-        $options = [];
+        $resultado = local_chuspasocial_pluginfile(
+            $course,
+            null,
+            $context,
+            'post',
+            ['1', 'imagen_privada.png'],
+            false,
+            []
+        );
 
-        // 4. Invocación de la función a probar (local_chuspasocial_pluginfile)
-        // Se espera que retorne false (o lance excepción) indicando que no tiene acceso.
-        
-        // Descomenta la siguiente línea cuando la lógica de la función esté lista en lib.php:
-        // $resultado = local_chuspasocial_pluginfile($course, null, $context, $filearea, $args, $forcedownload, $options);
-        // $this->assertFalse($resultado, 'Un usuario no inscrito no debe poder ver la imagen ajena');
+        $this->assertFalse(
+            $resultado,
+            'El plugin debe rechazar areas de archivos no permitidas.'
+        );
+    }
 
-        // Aserción temporal para garantizar que el Criterio de Aceptación "La prueba pasa" se cumple al crear el issue.
-        $this->assertTrue(true, 'La estructura de prueba para usuario no inscrito funciona correctamente');
+    /**
+     * Verifica que el menu Wall aparezca con el permiso adecuado.
+     */
+    public function test_navigation_agrega_wall_con_permiso() {
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        $user = $this->getDataGenerator()->create_user();
+        $context = \context_course::instance($course->id);
+
+        $roleid = $this->getDataGenerator()->create_role();
+        role_assign($roleid, $user->id, $context->id);
+
+        assign_capability(
+            'local/chuspasocial:view',
+            CAP_ALLOW,
+            $roleid,
+            $context->id
+        );
+
+        $this->setUser($user);
+
+        $navigation = \navigation_node::create(
+            'Curso',
+            null,
+            \navigation_node::TYPE_COURSE
+        );
+
+        local_chuspasocial_extend_navigation_course(
+            $navigation,
+            $course,
+            $context
+        );
+
+        $node = $navigation->find(
+            'local_chuspasocial_wall',
+            \navigation_node::TYPE_SETTING
+        );
+
+        $this->assertInstanceOf(
+            \navigation_node::class,
+            $node,
+            'El menu Wall debe aparecer si el usuario tiene permiso.'
+        );
+
+        $this->assertEquals(
+            get_string('wall', 'local_chuspasocial'),
+            $node->text
+        );
+    }
+
+    /**
+     * Verifica que el menu Wall no aparezca sin permiso.
+     */
+    public function test_navigation_no_agrega_wall_sin_permiso() {
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        $user = $this->getDataGenerator()->create_user();
+        $context = \context_course::instance($course->id);
+
+        $roleid = $this->getDataGenerator()->create_role();
+        role_assign($roleid, $user->id, $context->id);
+
+        assign_capability(
+            'local/chuspasocial:view',
+            CAP_PROHIBIT,
+            $roleid,
+            $context->id
+        );
+
+        $this->setUser($user);
+
+        $navigation = \navigation_node::create(
+            'Curso',
+            null,
+            \navigation_node::TYPE_COURSE
+        );
+
+        local_chuspasocial_extend_navigation_course(
+            $navigation,
+            $course,
+            $context
+        );
+
+        $node = $navigation->find(
+            'local_chuspasocial_wall',
+            \navigation_node::TYPE_SETTING
+        );
+
+        $this->assertFalse(
+            $node,
+            'El menu Wall no debe aparecer sin el permiso view.'
+        );
+    }
+
+    /**
+     * Verifica que Wall dirija al curso correspondiente.
+     */
+    public function test_navigation_wall_url_correcta() {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $course = $this->getDataGenerator()->create_course();
+        $context = \context_course::instance($course->id);
+
+        $navigation = \navigation_node::create(
+            'Curso',
+            null,
+            \navigation_node::TYPE_COURSE
+        );
+
+        local_chuspasocial_extend_navigation_course(
+            $navigation,
+            $course,
+            $context
+        );
+
+        $node = $navigation->find(
+            'local_chuspasocial_wall',
+            \navigation_node::TYPE_SETTING
+        );
+
+        $this->assertInstanceOf(
+            \navigation_node::class,
+            $node
+        );
+
+        $expectedurl = new \moodle_url(
+            '/local/chuspasocial/course.php',
+            ['id' => $course->id]
+        );
+
+        $this->assertEquals(
+            $expectedurl->out(false),
+            $node->action->out(false),
+            'El enlace Wall debe dirigir al curso correcto.'
+        );
     }
 }

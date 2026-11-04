@@ -54,6 +54,42 @@ php admin/cli/cfg.php --name=messaging
 php admin/cli/cfg.php --name=usetags
 ```
 
+### Límites de subida y memoria en php.ini
+
+El muro multimedia permite adjuntar hasta 4 imágenes por publicación (ajuste `maxpostimages`), así que PHP debe aceptar archivos de tamaño razonable y reservar memoria suficiente para validarlos y redimensionarlos. Valores sugeridos para un sitio de producción:
+
+| Directiva | Valor sugerido | Para qué sirve |
+|---|---|---|
+| `upload_max_filesize` | `64M` | Tamaño máximo de cada imagen que se sube al muro. |
+| `post_max_size` | `68M` | Tamaño máximo del cuerpo del POST; debe ser mayor que `upload_max_filesize` porque además de la imagen viajan los demás campos del formulario. |
+| `memory_limit` | `256M` | Memoria para que Moodle procese y redimensione las imágenes antes de guardarlas. |
+
+Notas:
+
+- Ajuste los valores a la política del sitio. Si necesita archivos más grandes, suba `upload_max_filesize`, mantenga `post_max_size` por encima de ese valor y aumente también `memory_limit`.
+- El tamaño efectivo no supera el ajuste **Tamaño máximo para subir archivos** de **Administración del sitio** > **Seguridad** > **Políticas del sitio**. Si las imágenes grandes se rechazan aunque php.ini permita más, revise ese ajuste.
+- Con PHP-FPM o Apache, reinicie el servicio después de editar php.ini para que los cambios se apliquen.
+- Compruebe los valores activos en **Administración del sitio** > **Servidor** > **Información PHP** o desde la consola:
+
+```text
+php -i | grep -E 'upload_max_filesize|post_max_size|memory_limit'
+```
+
+### Permisos de moodledata
+
+El muro guarda las imágenes en el área de archivos de Moodle, dentro de `moodledata`, así que el usuario del servidor web necesita permisos de escritura en esa carpeta. Antes de instalar, verifique:
+
+1. Que `moodledata` esté **fuera** del directorio público del sitio.
+2. Que el usuario del servidor web (por ejemplo `www-data`) sea el propietario y pueda escribir:
+
+   ```text
+   ls -ld /var/www/moodledata
+   sudo -u www-data test -w /var/www/moodledata && echo "moodledata con escritura para www-data"
+   ```
+
+   Si el segundo comando no imprime el mensaje, corrija el propietario o los permisos antes de continuar; la instalación y las subidas del muro fallan sin escritura en `moodledata`.
+3. Que **Administración del sitio** > **Notificaciones** no muestre advertencias sobre la carpeta de datos.
+
 ---
 
 ## Instalación desde archivo ZIP (Producción)

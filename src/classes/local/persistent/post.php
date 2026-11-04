@@ -37,6 +37,15 @@ class post extends persistent {
     /** Table name. */
     const TABLE = 'local_chuspasocial_post';
 
+    /** Post type: regular post. */
+    const TYPE_POST = 'post';
+
+    /** Post type: announcement. */
+    const TYPE_ANNOUNCEMENT = 'announcement';
+
+    /** Post type: activity. */
+    const TYPE_ACTIVITY = 'activity';
+
     /**
      * Defines the properties of the post.
      *
@@ -54,8 +63,8 @@ class post extends persistent {
             ],
             'type' => [
                 'type' => PARAM_ALPHA,
-                'choices' => ['post', 'announcement', 'activity'],
-                'default' => 'post',
+                'choices' => [self::TYPE_POST, self::TYPE_ANNOUNCEMENT, self::TYPE_ACTIVITY],
+                'default' => self::TYPE_POST,
             ],
             'content' => [
                 'type' => PARAM_RAW,

@@ -85,10 +85,11 @@ class listing_form extends moodleform {
     public function validation($data, $files) {
         $errors = parent::validation($data, $files);
 
-        // Criterio de aceptacion: Validar precio >= 0
+        // The price must be a decimal number greater than zero. 
         if(isset($data['price'])) {
-            if(!is_numeric($data['price']) || (float)$data['price'] < 0) {
-                $errors['price'] = get_string('errorinvalidprice', 'local_chuspasocial', 'El precio debe ser un numero mayor o igual a 0.');
+            $price = trim($data['price']);
+            if (!preg_match('/^\d+(\.\d{1,2})?$/', $price) || (float) $price <= 0) {
+                $errors['price'] = get_string('errorinvalidprice', 'local_chuspasocial');
             }
         }
 

@@ -24,6 +24,9 @@
 
 namespace local_chuspasocial\local;
 
+use local_chuspasocial\local\persistent\listing;
+use moodle_exception;
+
 /**
  * Service class for book listings.
  */
@@ -53,6 +56,31 @@ class listing_service {
         $params = ['title' => $pattern, 'author' => $pattern];
 
         return array_values($DB->get_records_sql($sql, $params, $page * $perpage, $perpage));
+    }
+
+    /**
+     * Save the photos of a listing from the draft area of the form.
+     *
+     * The files are stored in the 'listingphoto' file area, using the
+     * listing id as item id. It must be called when a listing is created
+     * and when it is updated.
+     *
+     * @param int $listingid Id of the listing that owns the photos.
+     * @param int $draftitemid Draft area id of the filemanager element.
+     */
+    public static function save_photos(int $listingid, int $draftitemid): void {
+        global $CFG;
+        require_once($CFG->libdir . '/filelib.php');
+
+        $context = \context_system::instance();
+        file_save_draft_area_files(
+            $draftitemid,
+            $context->id,
+            'local_chuspasocial',
+            'listingphoto',
+            $listingid,
+            ['subdirs' => 0, 'accepted_types' => ['image']]
+        );
     }
 
     /**
@@ -107,5 +135,173 @@ class listing_service {
         }
 
         return $currency . ' ' . format_float($price, 2);
+    }
+
+    /**
+     * Creates a listing for the current user.
+     *
+     * Requires the createlisting capability and the marketplace setting enabled.
+     *
+     * @param \stdClass $data Fields of the listing.
+     * @return listing The created listing.
+     * @throws moodle_exception If the marketplace is disabled.
+     * @throws \invalid_parameter_exception If the price is negative.
+     */
+    public static function create_listing(\stdClass $data): listing {
+        global $USER;
+
+        if (!get_config('local_chuspasocial', 'enablemarketplace')) {
+            throw new moodle_exception('nopermissions', 'error', '', 'create a listing');
+        }
+
+        require_capability('local/chuspasocial:createlisting', \context_system::instance());
+
+        if (isset($data->price) && (float) $data->price < 0) {
+            throw new \invalid_parameter_exception('The price must be greater than or equal to 0');
+        }
+
+        // Fields the author is not allowed to set.
+        $protected = ['id', 'userid', 'timecreated', 'timemodified', 'usermodified'];
+        $definition = listing::properties_definition();
+
+        $listing = new listing();
+        foreach ((array) $data as $field => $value) {
+            if (!in_array($field, $protected, true) && isset($definition[$field])) {
+                $listing->set($field, $value);
+            }
+        }
+        $listing->set('userid', (int) $USER->id);
+        $listing->create();
+
+        if (!empty($data->photos)) {
+            self::save_photos((int) $listing->get('id'), (int) $data->photos);
+        }
+        
+        $event = \local_chuspasocial\event\listing_created::create([
+            'objectid' => (int) $listing->get('id'),
+            'context' => \context_system::instance(),
+            'userid' => (int) $USER->id,
+        ]);
+        $event->trigger();
+        
+        return $listing;
+    }
+    /**
+     * Replace the courses linked to a listing.
+     *
+     * All the current links of the listing in the lstcourse table are removed and
+     * a new link is added for each course. Repeated ids are linked only once.
+     * Every course must exist; if one does not exist, nothing is changed.
+     *
+     * @param int $listingid Id of the listing.
+     * @param array $courseids Ids of the courses to link to the listing.
+     * @throws \moodle_exception If a course does not exist.
+     */
+    public static function set_courses(int $listingid, array $courseids): void {
+        global $DB;
+
+        $courseids = array_values(array_unique(array_map('intval', $courseids)));
+
+        if (!empty($courseids)) {
+            [$insql, $params] = $DB->get_in_or_equal($courseids, SQL_PARAMS_NAMED, 'course');
+            $params['siteid'] = SITEID;
+            $existing = $DB->get_fieldset_select('course', 'id', "id $insql AND id <> :siteid", $params);
+            $missing = array_diff($courseids, array_map('intval', $existing));
+            if (!empty($missing)) {
+                throw new \moodle_exception('invalidcourseid', 'error', '', implode(', ', $missing));
+            }
+        }
+
+        $transaction = $DB->start_delegated_transaction();
+        $DB->delete_records('local_chuspasocial_lstcourse', ['listingid' => $listingid]);
+        $records = [];
+        foreach ($courseids as $courseid) {
+            $records[] = (object) ['listingid' => $listingid, 'courseid' => $courseid];
+        }
+        $DB->insert_records('local_chuspasocial_lstcourse', $records);
+        $transaction->allow_commit();
+    }
+        /**
+     * Updates a listing. Only the author can edit it.
+     *
+     * The persistent updates timemodified and usermodified on its own.
+     *
+     * @param int $listingid ID of the listing to update.
+     * @param \stdClass $data Fields to update.
+     * @return listing The updated listing.
+     * @throws moodle_exception If the current user is not the author.
+     */
+    public static function update_listing(int $listingid, \stdClass $data): listing {
+        global $USER;
+
+        $listing = new listing($listingid);
+
+        if ((int) $listing->get('userid') !== (int) $USER->id) {
+            throw new moodle_exception('nopermissions', 'error', '', 'edit this listing');
+        }
+
+        $protected = ['id', 'userid', 'timecreated', 'timemodified', 'usermodified'];
+        $definition = listing::properties_definition();
+
+        foreach ((array) $data as $field => $value) {
+            if (!in_array($field, $protected, true) && isset($definition[$field])) {
+                $listing->set($field, $value);
+            }
+        }
+
+        $listing->update();
+
+        if (!empty($data->photos)) {
+            self::save_photos($listingid, (int) $data->photos);
+        }
+
+        return $listing;
+    }
+    /**
+     * Marks a listing as sold. Only the author can do it.
+     *
+     * @param int $listingid ID of the listing to mark as sold.
+     * @throws moodle_exception If the current user is not the author.
+     */
+    public static function mark_sold(int $listingid): void {
+        global $USER;
+
+        $listing = new listing($listingid);
+
+        if ((int) $listing->get('userid') !== (int) $USER->id) {
+            throw new moodle_exception('nopermissions', 'error', '', 'mark this listing as sold');
+        }
+
+        $listing->set('status', listing::STATUS_SOLD);
+        $listing->update();
+    }
+
+    /**
+     * Deletes a listing. Only the author or a moderator can do it.
+     *
+     * Also removes the links to the courses and the photos of the listing.
+     *
+     * @param int $listingid ID of the listing to delete.
+     * @throws moodle_exception If the current user is neither the author nor a moderator.
+     */
+    public static function delete_listing(int $listingid): void {
+        global $CFG, $DB, $USER;
+        require_once($CFG->libdir . '/filelib.php');
+
+        $listing = new listing($listingid);
+        $context = \context_system::instance();
+
+        $isauthor = (int) $listing->get('userid') === (int) $USER->id;
+        if (!$isauthor && !has_capability('local/chuspasocial:moderate', $context)) {
+            throw new moodle_exception('nopermissions', 'error', '', 'delete this listing');
+        }
+
+        $transaction = $DB->start_delegated_transaction();
+        $DB->delete_records('local_chuspasocial_lstcourse', ['listingid' => $listingid]);
+        $listing->delete();
+        $transaction->allow_commit();
+
+        $fs = get_file_storage();
+        $fs->delete_area_files($context->id, 'local_chuspasocial', 'photos', $listingid);
     }
 }

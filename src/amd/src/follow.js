@@ -28,7 +28,7 @@ export const init = () => {
     document.addEventListener('click', (event) => {
         const button = event.target.closest('[data-action="toggle-follow"]');
 
-        if (!button) {
+        if (!button || button.disabled) {
             return;
         }
 
@@ -36,6 +36,8 @@ export const init = () => {
 
         const component = button.dataset.component;
         const itemid = Number(button.dataset.itemid);
+
+        button.disabled = true;
 
         Ajax.call([{
             methodname: 'local_chuspasocial_toggle_follow',
@@ -51,8 +53,13 @@ export const init = () => {
             return getString(following ? 'following' : 'follow', 'local_chuspasocial');
         }).then((label) => {
             button.textContent = label;
+            button.disabled = false;
 
             return null;
-        }).catch(Notification.exception);
+        }).catch((error) => {
+            button.disabled = false;
+
+            Notification.exception(error);
+        });
     });
 };

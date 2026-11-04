@@ -13,3 +13,18 @@ Feature: Access to the ChuspaSocial wall
     Given I log in as "student1"
     When I visit "/local/chuspasocial/index.php"
     Then I should see "ChuspaSocial"
+
+  Scenario: A student filters the wall posts by clicking on a tag
+    Given I log in as "student1"
+    And I visit "/local/chuspasocial/index.php"
+    And I set the field "Message" to "Publicacion sobre literatura"
+    And I set the field "Tags" to "literatura"
+    And I press "Publish"
+    And I set the field "Message" to "Publicacion sobre ciencia"
+    And I set the field "Tags" to "ciencia"
+    And I press "Publish"
+    And I should see "Publicacion sobre literatura"
+    And I should see "Publicacion sobre ciencia"
+    When I click on "literatura" "link"
+    Then I should see "Publicacion sobre literatura"
+    And I should not see "Publicacion sobre ciencia"

@@ -3,8 +3,15 @@
     "description": "Red social academica y marketplace de libros integrados en Moodle.",
     "type": "project",
     "license": "MIT",
+    "require": {
+        "php": ">=8.1"
+    },
     "require-dev": {
         "moodlehq/moodle-cs": "^3.0"
+    },
+    "scripts": {
+        "lint": "phpcs",
+        "lint:fix": "phpcbf"
     },
     "config": {
         "allow-plugins": {

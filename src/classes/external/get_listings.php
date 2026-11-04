@@ -73,6 +73,7 @@ class get_listings extends external_api {
      * @param int $page Page number, starting at 0.
      * @param int $perpage Listings per page.
      * @return array
+     * @throws \invalid_parameter_exception When the page is negative or the perpage is out of range.
      */
     public static function execute(string $search = '', int $page = 0, int $perpage = 20): array {
         $params = self::validate_parameters(self::execute_parameters(), [

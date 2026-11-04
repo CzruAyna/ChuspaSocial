@@ -19,7 +19,16 @@
 
     Wall template for local_chuspasocial.
 
+    Data attributes required for JS:
+    * data-action=load-more
+    * data-page
+
     Context variables required for this template:
+    * nextpage - Optional positive integer for the next page in a zero-based feed.
+      The caller must confirm that this page contains more visible posts before
+      providing it. Omit or set to null when there is no next page.
+      This template controls visibility and escapes the value; it does not
+      validate page numbers, query the feed or load additional posts.
     * posts - List of posts of the wall. Each post is rendered with the
       local_chuspasocial/post template and has:
         * id - Post id.
@@ -28,9 +37,11 @@
         * timecreated - Unix timestamp of the post.
         * content - Post content, already formatted with format_text().
         * tags - List of tags of the post (name and url).
+      Empty or omitted when there are no posts.
 
     Example context (json):
     {
+        "nextpage": 1,
         "posts": [
             {
                 "id": 1,
@@ -57,4 +68,13 @@
     {{#posts}}
         {{> local_chuspasocial/post}}
     {{/posts}}
+    {{^posts}}
+        <p class="text-muted" data-region="wall-empty">Aún no hay publicaciones</p>
+    {{/posts}}
+    {{#nextpage}}
+        <button type="button" class="btn btn-secondary" data-action="load-more" data-page="{{nextpage}}"
+                aria-label="Cargar más">
+            Cargar más
+        </button>
+    {{/nextpage}}
 </div>

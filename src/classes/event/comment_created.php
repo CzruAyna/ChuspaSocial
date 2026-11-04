@@ -58,6 +58,13 @@ class comment_created extends \core\event\base {
      * @return string
      */
     public function get_description() {
-        return "The user with id '$this->userid' created the comment with id '$this->objectid'.";
+    $description = "The user with id '{$this->userid}' created the comment " .
+        "with id '{$this->objectid}'";
+
+    if (isset($this->other['postid'])) {
+        $description .= " on the post with id '{$this->other['postid']}'";
+    }
+
+    return $description . '.';
     }
 }

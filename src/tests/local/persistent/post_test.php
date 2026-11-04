@@ -29,7 +29,7 @@ class post_test extends advanced_testcase {
         $record = new \stdClass();
         $record->userid = 1;
         $record->content = 'Publicación de prueba en el muro';
-        $record->format = 1;
+        $record->contentformat = 1;
 
         // Se pasa 0 como primer argumento ($id) y $record como el segundo argumento
         $post = new post(0, $record);
@@ -56,5 +56,25 @@ class post_test extends advanced_testcase {
 
         $post = new post(0);
         $post->get('campo_inexistente_que_no_existe');
+    }
+
+    /**
+     * Test 4: Guardar el post en la base de datos y recuperarlo por su id.
+     */
+    public function test_guardar_y_recuperar_post(): void {
+        $record = new \stdClass();
+        $record->userid = 2;
+        $record->content = 'Publicación guardada en la base de datos';
+        $record->contentformat = 1;
+
+        $post = new post(0, $record);
+        $post->create();
+
+        $this->assertGreaterThan(0, $post->get('id'));
+
+        $retrieved = new post($post->get('id'));
+
+        $this->assertEquals(2, $retrieved->get('userid'));
+        $this->assertEquals('Publicación guardada en la base de datos', $retrieved->get('content'));
     }
 }

@@ -53,4 +53,57 @@ class comment_service {
             'timecreated ASC, id ASC'
         ));
     }
+    
+    /**
+     * Add a comment to a visible post.
+     *
+     * @param int $postid ID of the post being commented on.
+     * @param string $content Text content of the comment.
+     * @return \local_chuspasocial\local\persistent\comment The created comment.
+     * @throws \moodle_exception If the post is not visible or the user cannot comment.
+     */
+    public static function add_comment(int $postid, string $content): \local_chuspasocial\local\persistent\comment {
+        global $USER;
+
+        // Load the post.
+        $post = new \local_chuspasocial\local\persistent\post($postid);
+
+        // Check whether the current user can view the post.
+        if (!post_service::can_view($post, (int) $USER->id)) {
+            throw new \moodle_exception('nopermissions', 'error', '', 'view this post');
+        }
+
+        // Determine the context of the post.
+        $courseid = (int) $post->get('courseid');
+        if ($courseid > 0) {
+            $context = \context_course::instance($courseid);
+        } else {
+            $context = \context_system::instance();
+        }
+
+        // Check whether the current user can comment.
+        require_capability('local/chuspasocial:comment', $context);
+
+        // Create and return the comment.
+        $comment = new \local_chuspasocial\local\persistent\comment(0, (object) [
+            'postid' => $postid,
+            'userid' => (int) $USER->id,
+            'content' => $content,
+            'contentformat' => FORMAT_PLAIN,
+            'timecreated' => time(),
+            'timemodified' => time(),
+        ]);
+
+        $comment->create();
+
+        // Trigger the comment_created event once the comment is saved.
+        \local_chuspasocial\event\comment_created::create([
+            'objectid' => $comment->get('id'),
+            'context' => $context,
+            'userid' => (int) $USER->id,
+            'other' => ['postid' => $postid],
+        ])->trigger();
+
+        return $comment;
+    }
 }

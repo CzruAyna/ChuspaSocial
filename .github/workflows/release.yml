@@ -16,6 +16,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Verificar que el tag coincida con la versión del plugin
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          RELEASE=$(grep -oP '\$plugin->release\s*=\s*[\x27"]\K[^\x27"]+' src/version.php || true)
+          if [ -z "$RELEASE" ]; then
+            echo "::error::No se encontró \$plugin->release en src/version.php"
+            exit 1
+          fi
+          if [ "$TAG" != "$RELEASE" ]; then
+            echo "::error::El tag $GITHUB_REF_NAME no coincide con \$plugin->release ($RELEASE) de src/version.php"
+            exit 1
+          fi
+          echo "El tag $GITHUB_REF_NAME coincide con \$plugin->release $RELEASE"
+
       - name: Preparar paquetes
         run: |
           mkdir -p package/chuspasocial
@@ -32,3 +46,4 @@ jobs:
           files: local_chuspasocial.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          

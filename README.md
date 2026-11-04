@@ -44,6 +44,14 @@ a una persona identificada de la comunidad.
 | Calidad | PHPUnit, Behat, PHP_CodeSniffer con el estándar `moodle-cs` |
 | CI | GitHub Actions + `moodle-plugin-ci` |
 
+**Extensiones PHP obligatorias** (Moodle 4.5 LTS):
+
+`ctype`, `curl`, `dom`, `fileinfo`, `filter`, `gd`, `hash`, `iconv`, `intl`, `json`, `mbstring`, `openssl`, `pcre`, `simplexml`, `sodium`, `spl`, `xml`, `xmlreader`, `zip`, `zlib`
+
+Además, la extensión de tu base de datos (`pgsql` o `mysqli`).
+
+**Recomendadas:** `exif`, `soap`, `tokenizer`
+
 La interfaz está disponible en español e inglés (`lang/es`, `lang/en`). El código
 se escribe en inglés, según la convención de Moodle.
 

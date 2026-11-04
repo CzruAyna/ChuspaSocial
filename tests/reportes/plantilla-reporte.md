@@ -2,10 +2,12 @@
 
 **Fecha:**  
 **Versión probada:**  
+**Hash de commit:**  
 **Responsable QA:**  
 **Versión de Moodle:**  
 **Versión del plugin:**  
-**Base de datos:**  
+**Versión de PHP:**  
+**Motor de base de datos:**  
 **Navegador:**  
 
 ---

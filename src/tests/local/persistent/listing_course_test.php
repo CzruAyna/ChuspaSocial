@@ -22,17 +22,19 @@ class listing_course extends persistent {
         ];
     }
 }
+
 /**
- * Pruebas para la clase persistente de vínculos entre publicaciones y cursos.
+ * Pruebas para la clase persistente de vinculos entre publicaciones y cursos.
  *
  * @package local_persistent
  * @category test
  * @covers \core\persistent
  */
-
 class listing_course_test extends advanced_testcase {
+
     protected function setUp(): void {
-        $this->resetAfterTest();
+        parent::setUp();
+        $this->resetAfterTest(true);
     }
 
     public function test_creacion_valida(): void {
@@ -60,5 +62,35 @@ class listing_course_test extends advanced_testcase {
 
         $persistent = new listing_course(0);
         $persistent->get('campo_inexistente');
+    }
+
+    /**
+     * Verifica que no se permita duplicar la relacion anuncio-curso.
+     */
+    public function test_no_permite_asociacion_duplicada(): void {
+        global $DB;
+
+        $record = new stdClass();
+        $record->listingid = 10;
+        $record->courseid = 20;
+
+        // Crear la primera asociacion.
+        $persistent = new listing_course(0, $record);
+        $persistent->create();
+
+        // Verificar que la primera asociacion se guardo.
+        $this->assertEquals(
+            1,
+            $DB->count_records(
+                'local_chuspasocial_lstcourse',
+                ['listingid' => 10, 'courseid' => 20]
+            )
+        );
+
+        // Intentar guardar la misma asociacion nuevamente.
+        $this->expectException(\dml_write_exception::class);
+
+        $duplicado = new listing_course(0, $record);
+        $duplicado->create();
     }
 }

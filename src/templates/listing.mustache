@@ -24,7 +24,7 @@
 
     Context variables required for this template:
     * id - Listing id.
-    * photourl - URL of the book photo.
+    * photourl - URL of the book photo. If empty, a placeholder is shown instead.
     * title - Book title.
     * author - Book author.
     * price - Formatted price, including the currency.
@@ -47,7 +47,14 @@
     }
 }}
 <article class="card mb-3" data-listingid="{{id}}">
+    {{#photourl}}
     <img src="{{photourl}}" class="card-img-top" alt="">
+    {{/photourl}}
+    {{^photourl}}
+    <div class="card-img-top d-flex align-items-center justify-content-center bg-light text-muted py-5" data-region="listing-placeholder">
+        <i class="icon fa fa-book fa-3x" aria-hidden="true"></i>
+    </div>
+    {{/photourl}}
     <div class="card-body">
         <h3 class="h5 card-title">{{title}}</h3>
         <p class="card-subtitle text-muted mb-2">{{author}}</p>

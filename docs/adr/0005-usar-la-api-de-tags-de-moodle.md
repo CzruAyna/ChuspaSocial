@@ -26,3 +26,11 @@ Usar la API de tags de Moodle (`core_tag`) para etiquetar las publicaciones de C
 Las publicaciones se asociarán a tags mediante `core_tag`, registrando el componente `local_chuspasocial` y su área de tags. El plugin no necesitará tablas propias para guardar etiquetas.
 
 Los administradores podrán gestionar las etiquetas de ChuspaSocial desde la administración de tags de Moodle. A cambio, el comportamiento de las etiquetas queda sujeto a las reglas y limitaciones de `core_tag`, y cualquier necesidad que esa API no cubra deberá resolverse sin romper su modelo de datos.
+
+## Interacción con el core de Moodle
+
+Para asegurar el correcto funcionamiento, la interacción con el subsistema `core_tag` se estructurará de la siguiente manera:
+
+1. **Definición del área de tags:** Se implementará la función `local_chuspasocial_get_tagged_areas()` en el archivo `lib.php` del plugin para registrar formalmente el componente ante el core. El área de tags del componente (`itemtype`) será `chuspasocial_posts` y utilizará la colección de tags por defecto del sistema (`core_cllct_default`).
+2. **Asociación y guardado:** Al crear o editar una publicación, se invocará la API `core_tag_tag::set_item_tags()` pasando el componente `local_chuspasocial`, el itemtype `chuspasocial_posts`, el ID de la publicación y el arreglo con los tags ingresados.
+3. **Recuperación y renderizado:** Al listar el muro o el feed personalizado, se utilizarán las funciones del core como `core_tag_tag::get_item_tags()` para extraer las etiquetas asociadas a cada ID de publicación de forma eficiente.

@@ -12,15 +12,15 @@
 .local-chuspasocial:focus-visible,
 button.local-chuspasocial:focus-visible,
 .btn.local-chuspasocial:focus-visible {
-    outline: 3px solid #0f6cbf;
+    outline: 3px solid var(--primary, #0f6cbf);
     outline-offset: 2px;
-    box-shadow: 0 0 0 2px #ffffff;
+    box-shadow: 0 0 0 2px var(--white, #ffffff);
 }
 
 /* Regla: anuncios oficiales con borde izquierdo del color del tema y fondo suave */
 .local-chuspasocial-announcement {
     border-left: 4px solid var(--primary, #0f6cbf);
-    background-color: #e7f1fa;
-    color: #1d2125;
+    background-color: var(--gray-200, #e7f1fa);
+    color: var(--gray-900, #1d2125);
 }
 

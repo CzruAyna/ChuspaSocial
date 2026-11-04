@@ -68,4 +68,24 @@ class post_deleted_test extends advanced_testcase {
         // Verificar que el objectid del evento coincide con el ID del post eliminado.
         $this->assertEquals($postid, $event->objectid);
     }
+
+    /**
+     * Test: Eliminar una publicacion inexistente lanza dml_missing_record_exception
+     * y no dispara ningun evento post_deleted.
+     */
+    public function test_eliminar_post_inexistente_lanza_excepcion(): void {
+        // Redirigir los eventos para poder comprobar que no se dispara ninguno.
+        $this->redirectEvents();
+
+        // Se espera la excepcion que lanza la capa de servicio al no encontrar la publicacion.
+        $this->expectException(\dml_missing_record_exception::class);
+
+        try {
+            \local_chuspasocial\local\post_service::delete_post(999999);
+        } catch (\dml_missing_record_exception $exception) {
+            // La publicacion no existia, por lo que no debe dispararse el evento post_deleted.
+            $this->assertEmpty($this->getEvents());
+            throw $exception;
+        }
+    }
 }

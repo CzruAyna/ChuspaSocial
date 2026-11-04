@@ -57,4 +57,42 @@ class comment_test extends advanced_testcase {
         $comment = new comment(0);
         $comment->get('campo_inexistente_que_no_existe');
     }
+
+    /**
+     * Test 4: Crear un comentario y leerlo desde la base de datos.
+     */
+    public function test_crear_y_leer_comentario_en_bd(): void {
+        $record = new \stdClass();
+        $record->userid = 2;
+        $record->postid = 5;
+        $record->content = 'Comentario persistido';
+
+        $comment = new comment(0, $record);
+        $comment->create();
+
+        $this->assertGreaterThan(0, $comment->get('id'));
+
+        $comentarioleido = new comment($comment->get('id'));
+        $this->assertEquals('Comentario persistido', $comentarioleido->get('content'));
+    }
+
+    /**
+     * Test 5: Eliminar un comentario persistido de la base de datos.
+     */
+    public function test_eliminar_comentario(): void {
+        global $DB;
+
+        $record = new \stdClass();
+        $record->userid = 2;
+        $record->postid = 5;
+        $record->content = 'Comentario a eliminar';
+
+        $comment = new comment(0, $record);
+        $comment->create();
+        $id = $comment->get('id');
+
+        $comment->delete();
+
+        $this->assertFalse($DB->record_exists(comment::TABLE, ['id' => $id]));
+    }
 }

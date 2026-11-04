@@ -58,6 +58,7 @@ class post_deleted extends \core\event\base {
      * @return string
      */
     public function get_description() {
-        return "The user with id '$this->userid' deleted the post with id '$this->objectid'.";
+        return "The user with id '$this->userid' deleted the post with id '$this->objectid' " .
+            "in the course with id '$this->courseid'.";
     }
 }

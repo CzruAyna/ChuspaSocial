@@ -44,6 +44,20 @@ class reaction_added extends \core\event\base {
     }
 
     /**
+     * Custom validation.
+     *
+     * @throws \coding_exception when validation does not pass.
+     * @return void
+     */
+    protected function validate_data() {
+        parent::validate_data();
+
+        if (!isset($this->other['reactiontype'])) {
+            throw new \coding_exception('The \'reactiontype\' value must be set in other.');
+        }
+    }
+
+    /**
      * Returns the localised name of the event.
      *
      * @return string

@@ -24,4 +24,9 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$callbacks = [];
+$callbacks = [
+    [
+        'hook' => \core\hook\navigation\primary_extend::class,
+        'callback' => \local_chuspasocial\local\hook_callbacks::class . '::extend_primary_navigation',
+    ],
+];

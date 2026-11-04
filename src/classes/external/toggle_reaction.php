@@ -65,12 +65,7 @@ class toggle_reaction extends external_api {
             'postid' => $postid,
         ]);
 
-        $post = $DB->get_record(
-            'local_chuspasocial_post',
-            ['id' => $params['postid']],
-            'id, courseid',
-            MUST_EXIST
-        );
+        $post = $DB->get_record('local_chuspasocial_post', ['id' => $params['postid']], '*', MUST_EXIST);
 
         if ((int) $post->courseid > 0) {
             $context = context_course::instance((int) $post->courseid);
@@ -80,6 +75,11 @@ class toggle_reaction extends external_api {
 
         self::validate_context($context);
         require_capability('local/chuspasocial:react', $context);
+
+        // Impedir reaccionar a publicaciones ocultas.
+        if (!empty($post->hidden)) {
+            throw new \invalid_parameter_exception('Cannot react to a hidden post');
+        }
 
         $reacted = reaction_service::toggle((int) $params['postid']);
 

@@ -101,3 +101,19 @@ sequenceDiagram
 4. Se guarda el registro en la base de datos mediante la API `$DB`.
 5. Se emite el evento `post_created` a través de la Events API de Moodle.
 6. La respuesta se envía formateada a la vista y se renderiza el muro actualizado para el usuario.
+
+## Interacción entre Capas y Flujo de Datos
+
+El sistema se organiza en capas arquitectónicas bien definidas, cada una con una responsabilidad única. El flujo de peticiones y respuestas sigue la siguiente estructura:
+
+### 1. Controladores AJAX (Endpoints Externos)
+* **Responsabilidad:** Recibir las solicitudes del usuario o del frontend de manera externa.
+* **Flujo:** Valida los datos de entrada de la petición y los delega inmediatamente a la capa de servicios de negocio. Finalmente, transforma el resultado en una respuesta (generalmente JSON).
+
+### 2. Servicios de Negocio
+* **Responsabilidad:** Orquestar la lógica interna de la aplicación y las reglas de negocio.
+* **Flujo:** Recibe la información del controlador, procesa las acciones necesarias y se comunica con las clases persistentes si requiere leer o almacenar datos.
+
+### 3. Clases Persistentes (Acceso a Datos)
+* **Responsabilidad:** Gestionar la persistencia de la información y la comunicación directa con la base de datos u otros sistemas de almacenamiento.
+* **Flujo:** Ejecuta las consultas solicitadas por los servicios de negocio y retorna las entidades o registros listos para ser procesados.

@@ -106,6 +106,30 @@ chore: configurar phpcs con el estándar de Moodle
 
 ---
 
+## Verificaciones antes de abrir un PR
+
+Antes de abrir un Pull Request, ejecuta localmente las siguientes verificaciones:
+
+### PHP CodeSniffer
+
+Para comprobar que el código cumple con los estándares de Moodle:
+
+```bash
+vendor/bin/phpcs
+```
+
+### PHPUnit
+
+Para ejecutar las pruebas automatizadas:
+
+```bash
+vendor/bin/phpunit
+```
+
+Si alguna verificación presenta errores, corrígelos antes de abrir el Pull Request.
+
+---
+
 ## Ramas del proyecto
 
 | Rama | Propósito |
@@ -126,6 +150,45 @@ Para mantener el código consistente con Moodle, usa estas convenciones:
 - **Tablas de base de datos:** sus nombres deben tener como máximo 28 caracteres y mantenerse relacionados con el componente.
 - **Namespaces:** las clases del plugin deben usar el namespace `local_chuspasocial\...` y ubicarse dentro de `classes/` según su responsabilidad.
 - **Claves de strings:** usa identificadores descriptivos en minúsculas y sin espacios, definidos en los archivos de idioma del componente.
+
+## Cómo agregar strings de idioma
+
+Los textos que ve el usuario no se escriben a mano en el código: se definen como *strings* en los archivos de idioma del plugin y se leen con `get_string()`. Hay un archivo por idioma, y los dos deben tener exactamente las mismas claves:
+
+- `src/lang/en/local_chuspasocial.php` (inglés)
+- `src/lang/es/local_chuspasocial.php` (español)
+
+### Reglas
+
+- **Un grupo de strings, un issue:** los strings se agregan en issues propios, uno por grupo. No los agregues por tu cuenta dentro del issue de otra funcionalidad.
+- **Orden alfabético:** en cada archivo, agrega la línea en el lugar que le corresponde según su clave, en orden alfabético.
+- **Las mismas claves en los dos idiomas:** si una clave existe en `en`, debe existir también en `es`, y al revés.
+- **Clave y texto:** la clave va en minúsculas y sin espacios (ver «Convenciones de nombres de Moodle») y el texto entre comillas simples.
+
+Ejemplo:
+
+```php
+$string['addcomment'] = 'Add comment';
+```
+
+### ¿Qué pasa si el string todavía no existe?
+
+Mientras un string no esté definido, Moodle muestra su clave entre corchetes dobles en lugar del texto, por ejemplo `[[addcomment]]`. Es normal: significa que ese string aún no se agregó, no que tu código esté mal. No lo "arregles" escribiendo el texto fijo en el código.
+
+### Comprobar tus cambios
+
+Verifica que los archivos de idioma no tengan errores de sintaxis:
+
+```bash
+php -l src/lang/en/local_chuspasocial.php
+php -l src/lang/es/local_chuspasocial.php
+```
+
+Después, desde la carpeta de tu Moodle local, borra la caché para que Moodle lea los strings nuevos:
+
+```bash
+php admin/cli/purge_caches.php
+```
 
 ---
 

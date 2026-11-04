@@ -1,5 +1,30 @@
 # Personas
 
+Las personas son perfiles ficticios que representan a los usuarios reales de ChuspaSocial.
+Sirven para decidir qué funcionalidades priorizar pensando en sus objetivos y frustraciones.
+
+## Plantilla
+
+Copia esta plantilla para agregar una nueva persona:
+
+**Nombre:** nombre de la persona.
+
+**Rol:** rol que cumple dentro de la universidad.
+
+**Contexto:** situación en la que se encuentra y por qué necesita ChuspaSocial.
+
+**Objetivos:**
+
+- Objetivo 1.
+- Objetivo 2.
+
+**Frustraciones:**
+
+- Frustración 1.
+- Frustración 2.
+
+**Cómo usa ChuspaSocial:** funcionalidades que utiliza y para qué.
+
 ## Estudiante de segundo semestre
 
 **Nombre:** Estudiante de segundo semestre

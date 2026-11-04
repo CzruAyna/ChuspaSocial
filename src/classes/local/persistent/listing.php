@@ -29,6 +29,12 @@ class listing extends persistent {
     /** Database table. */
     const TABLE = 'local_chuspasocial_listing';
 
+    /** Listing status: available. */
+    const STATUS_AVAILABLE = 'available';
+
+    /** Listing status: sold. */
+    const STATUS_SOLD = 'sold';
+
     /**
      * Define the properties of this persistent.
      *
@@ -66,10 +72,10 @@ class listing extends persistent {
             ],
             'status' => [
                 'type' => PARAM_ALPHA,
-                'default' => 'available',
+                'default' => self::STATUS_AVAILABLE,
                 'choices' => [
-                    'available',
-                    'sold',
+                    self::STATUS_AVAILABLE,
+                    self::STATUS_SOLD,
                 ],
             ],
         ];
