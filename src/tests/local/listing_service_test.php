@@ -435,6 +435,47 @@ class listing_service_test extends advanced_testcase {
         $this->assertSame($gratis, listing_service::format_price(0.0));
         $this->assertSame($gratis, listing_service::format_price(0));
     }
+
+    /**
+     * El autor del anuncio puede gestionarlo.
+     *
+     * @covers \local_chuspasocial\local\listing_service::can_manage
+     */
+    public function test_can_manage_autor(): void {
+        $listing = new \local_chuspasocial\local\persistent\listing($this->crear_anuncio('Calculo', 'Stewart'));
+
+        $this->assertTrue(listing_service::can_manage($listing, (int) $listing->get('userid')));
+    }
+
+    /**
+     * Un moderador puede gestionar un anuncio ajeno.
+     *
+     * @covers \local_chuspasocial\local\listing_service::can_manage
+     */
+    public function test_can_manage_moderador(): void {
+        $generator = $this->getDataGenerator();
+        $moderator = $generator->create_user();
+        $context = \context_system::instance();
+        $roleid = $generator->create_role();
+        assign_capability('local/chuspasocial:moderate', CAP_ALLOW, $roleid, $context->id);
+        role_assign($roleid, $moderator->id, $context->id);
+
+        $listing = new \local_chuspasocial\local\persistent\listing($this->crear_anuncio('Calculo', 'Stewart'));
+
+        $this->assertTrue(listing_service::can_manage($listing, (int) $moderator->id));
+    }
+
+    /**
+     * Otro usuario sin permisos no puede gestionar el anuncio.
+     *
+     * @covers \local_chuspasocial\local\listing_service::can_manage
+     */
+    public function test_can_manage_otro_usuario(): void {
+        $other = $this->getDataGenerator()->create_user();
+        $listing = new \local_chuspasocial\local\persistent\listing($this->crear_anuncio('Calculo', 'Stewart'));
+
+        $this->assertFalse(listing_service::can_manage($listing, (int) $other->id));
+    }
     
 }
 
