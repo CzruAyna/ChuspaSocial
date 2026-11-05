@@ -72,5 +72,29 @@ class local_chuspasocial_generator extends component_generator_base {
 
         return $reaction;
     }
+
+    /**
+     * Creates a post for testing.
+     *
+     * @param array $record Post data.
+     * @return \local_chuspasocial\local\persistent\post
+     */
+    public function create_post(array $record = []): \local_chuspasocial\local\persistent\post {
+        if (empty($record['userid'])) {
+            $user = $this->datagenerator->create_user();
+            $record['userid'] = $user->id;
+        }
+
+        $record['courseid'] = $record['courseid'] ?? 0;
+        $record['type'] = $record['type'] ?? \local_chuspasocial\local\persistent\post::TYPE_POST;
+        $record['content'] = $record['content'] ?? 'Publicacion de prueba';
+        $record['contentformat'] = $record['contentformat'] ?? FORMAT_HTML;
+        $record['hidden'] = $record['hidden'] ?? 0;
+
+        $post = new \local_chuspasocial\local\persistent\post(0, (object) $record);
+        $post->create();
+
+        return $post;
+    }
 }
 
