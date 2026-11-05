@@ -8,11 +8,11 @@
 //
 // Moodle is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle. If not, see <https://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
  * Muro de publicaciones de una materia.
@@ -80,7 +80,37 @@ if ($data = $form->get_data()) {
 
 // Obtener las publicaciones visibles de la materia.
 $records = post_service::get_course_feed($courseid, $page, $perpage);
+// Obtener las reacciones de las publicaciones.
+$counts = [];
+$mine = [];
 
+if (!empty($records)) {
+    $postids = array_map(
+        fn($record) => (int) $record->id,
+        $records
+    );
+
+    [$insql, $inparams] = $DB->get_in_or_equal(
+        $postids,
+        SQL_PARAMS_NAMED,
+        'pid'
+    );
+
+    $counts = $DB->get_records_sql_menu(
+        "SELECT postid, COUNT(1)
+           FROM {local_chuspasocial_reaction}
+          WHERE postid $insql
+       GROUP BY postid",
+        $inparams
+    );
+
+    $mine = array_flip($DB->get_fieldset_select(
+        'local_chuspasocial_reaction',
+        'postid',
+        "userid = :userid AND postid $insql",
+        $inparams + ['userid' => (int) $USER->id]
+    ));
+}
 // Preparar las publicaciones para la plantilla.
 $posts = [];
 
@@ -95,12 +125,15 @@ foreach ($records as $record) {
         continue;
     }
 
-    $exporter = new post_exporter($record, [
+       $exporter = new post_exporter($record, [
         'context' => $context,
         'author' => $author,
-    ]);
+        'reactions' => (int) ($counts[$record->id] ?? 0),
+        'hasreacted' => isset($mine[$record->id]),
+       ]);
 
     $data = (array) $exporter->export($OUTPUT);
+    $data['postid'] = $record->id;
 
     // Dar formato al contenido.
     $data['content'] = format_text(
