@@ -110,7 +110,8 @@
                 <FIELD NAME="descriptionformat" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="Formato de la descripcion (FORMAT_HTML = 1)"/>
                 <FIELD NAME="price" TYPE="number" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" DECIMALS="2" COMMENT="Precio del libro"/>
                 <FIELD NAME="externalcontact" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="Contacto externo del vendedor"/>
-                <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="available" SEQUENCE="false" COMMENT="Estado del anuncio: available o sold"/>
+                <FIELD NAME="category" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false" COMMENT="Categoria del anuncio"/>
+                <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="available" SEQUENCE="false" COMMENT="Estado del anuncio: available, sold o retired"/>
                 <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Marca de tiempo de creacion"/>
                 <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Marca de tiempo de la ultima modificacion"/>
             </FIELDS>

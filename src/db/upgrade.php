@@ -38,5 +38,18 @@ function xmldb_local_chuspasocial_upgrade($oldversion): bool {
     //     upgrade_plugin_savepoint(true, YYYYMMDDXX, 'local', 'chuspasocial');
     // }
 
+    if ($oldversion < 2026110400) {
+        // Define field category to be added to local_chuspasocial_listing.
+        $table = new xmldb_table('local_chuspasocial_listing');
+        $field = new xmldb_field('category', XMLDB_TYPE_CHAR, '100', null, null, null, null, 'externalcontact');
+
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Mark this version as completed.
+        upgrade_plugin_savepoint(true, 2026110400, 'local', 'chuspasocial');
+    }
+
     return true;
 }
