@@ -424,6 +424,131 @@ class post_service_test extends advanced_testcase {
 
         $this->assertSame([$third, $second], $this->get_feed_ids(post_service::get_general_feed(0, 2)));
         $this->assertSame([$first], $this->get_feed_ids(post_service::get_general_feed(1, 2)));
+    }
+
+    /**
+     * Registra que un usuario sigue a otro usuario o a un tag.
+     *
+     * @param int $userid Id del usuario que sigue.
+     * @param string $itemtype Tipo de elemento seguido: user o tag.
+     * @param int $itemid Id del elemento seguido.
+     */
+    private function create_test_follow(int $userid, string $itemtype, int $itemid): void {
+        global $DB;
+
+        $DB->insert_record('local_chuspasocial_follow', (object) [
+            'userid' => $userid,
+            'itemtype' => $itemtype,
+            'itemid' => $itemid,
+            'timecreated' => time(),
+        ]);
+    }
+
+    /**
+     * Asigna un tag a una publicacion del muro general.
+     *
+     * @param int $postid Id de la publicacion.
+     * @param string $tagname Nombre del tag.
+     * @return int Id del tag.
+     */
+    private function add_test_tag(int $postid, string $tagname): int {
+        \core_tag_tag::set_item_tags(
+            'local_chuspasocial',
+            'local_chuspasocial_post',
+            $postid,
+            \context_system::instance(),
+            [$tagname]
+        );
+        $tags = \core_tag_tag::get_item_tags('local_chuspasocial', 'local_chuspasocial_post', $postid);
+
+        return (int) reset($tags)->id;
+    }
+
+    /**
+     * El feed incluye las publicaciones de usuarios seguidos y no las de otros usuarios.
+     *
+     * @covers \local_chuspasocial\local\post_service::get_personal_feed
+     */
+    public function test_get_personal_feed_incluye_publicaciones_de_usuarios_seguidos(): void {
+        $generator = $this->getDataGenerator();
+        $viewer = $generator->create_user();
+        $followed = $generator->create_user();
+        $other = $generator->create_user();
+        $followedpostid = $this->create_test_post($followed->id, 0);
+        $this->create_test_post($other->id, 0);
+        $this->create_test_follow($viewer->id, 'user', $followed->id);
+
+        $this->setUser($viewer);
+        $feed = post_service::get_personal_feed(0, 10);
+
+        $this->assertSame([$followedpostid], $this->get_feed_ids($feed));
+    }
+
+    /**
+     * El feed incluye las publicaciones con tags seguidos y no las que no los tienen.
+     *
+     * @covers \local_chuspasocial\local\post_service::get_personal_feed
+     */
+    public function test_get_personal_feed_incluye_publicaciones_de_tags_seguidos(): void {
+        $generator = $this->getDataGenerator();
+        $viewer = $generator->create_user();
+        $author = $generator->create_user();
+        $taggedpostid = $this->create_test_post($author->id, 0);
+        $this->create_test_post($author->id, 0);
+        $tagid = $this->add_test_tag($taggedpostid, 'tagseguido');
+        $this->create_test_follow($viewer->id, 'tag', $tagid);
+
+        $this->setUser($viewer);
+        $feed = post_service::get_personal_feed(0, 10);
+
+        $this->assertSame([$taggedpostid], $this->get_feed_ids($feed));
+    }
+
+    /**
+     * Una publicacion de un usuario seguido con un tag seguido aparece una sola vez.
+     *
+     * @covers \local_chuspasocial\local\post_service::get_personal_feed
+     */
+    public function test_get_personal_feed_no_duplica_publicaciones(): void {
+        $generator = $this->getDataGenerator();
+        $viewer = $generator->create_user();
+        $author = $generator->create_user();
+        $postid = $this->create_test_post($author->id, 0);
+        $tagid = $this->add_test_tag($postid, 'tagseguido');
+        $this->create_test_follow($viewer->id, 'user', $author->id);
+        $this->create_test_follow($viewer->id, 'tag', $tagid);
+
+        $this->setUser($viewer);
+        $feed = post_service::get_personal_feed(0, 10);
+
+        $this->assertSame([$postid], $this->get_feed_ids($feed));
+    }
+
+    /**
+     * El feed no incluye publicaciones de materias donde el usuario no esta inscrito.
+     *
+     * @covers \local_chuspasocial\local\post_service::get_personal_feed
+     */
+    public function test_get_personal_feed_excluye_publicaciones_de_materias_ajenas(): void {
+        $generator = $this->getDataGenerator();
+        $owncourse = $generator->create_course();
+        $othercourse = $generator->create_course();
+        $viewer = $generator->create_user();
+        $author = $generator->create_user();
+        $generator->enrol_user($viewer->id, $owncourse->id, 'student');
+        $generator->enrol_user($author->id, $owncourse->id, 'student');
+        $generator->enrol_user($author->id, $othercourse->id, 'student');
+        $ownpostid = $this->create_test_post($author->id, $owncourse->id);
+        $this->create_test_post($author->id, $othercourse->id);
+        $this->create_test_follow($viewer->id, 'user', $author->id);
+
+        $this->setUser($viewer);
+        $feed = post_service::get_personal_feed(0, 10);
+
+        $this->assertSame([$ownpostid], $this->get_feed_ids($feed));
+    }
+
+    /**
      * An enrolled student can view a visible course post.
      *
      * @covers \local_chuspasocial\local\post_service::can_view
