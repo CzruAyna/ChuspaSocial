@@ -713,4 +713,109 @@ class post_service_test extends advanced_testcase {
 
         $this->assertFalse(post_service::can_view($post, $viewer->id));
     }
+        /**
+     * Crea un post con fecha de creacion y visibilidad controladas.
+     *
+     * @param int $userid Autor de la publicacion.
+     * @param int $courseid Materia donde se publica (0 = muro general).
+     * @param int $timecreated Fecha de creacion de la publicacion.
+     * @param int $hidden 1 si la publicacion esta oculta, 0 si es visible.
+     * @return int Id de la publicacion creada.
+     */
+    private function create_test_post_at(int $userid, int $courseid, int $timecreated, int $hidden = 0): int {
+        global $DB;
+
+        return (int) $DB->insert_record('local_chuspasocial_post', (object) [
+            'userid' => $userid,
+            'courseid' => $courseid,
+            'type' => 'post',
+            'content' => 'Test post',
+            'contentformat' => FORMAT_HTML,
+            'hidden' => $hidden,
+            'timecreated' => $timecreated,
+            'timemodified' => $timecreated,
+        ]);
+    }
+
+    /**
+     * El feed de una materia ordena las publicaciones de la mas reciente a la mas antigua.
+     *
+     * @covers \local_chuspasocial\local\post_service::get_course_feed
+     */
+    public function test_get_course_feed_ordena_de_mas_reciente_a_mas_antigua(): void {
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $user = $generator->create_user();
+
+        // Se crean desordenados a proposito.
+        $oldest = $this->create_test_post_at($user->id, $course->id, 1000);
+        $newest = $this->create_test_post_at($user->id, $course->id, 3000);
+        $middle = $this->create_test_post_at($user->id, $course->id, 2000);
+
+        $feed = post_service::get_course_feed($course->id, 0, 10);
+
+        $this->assertSame([$newest, $middle, $oldest], $this->get_feed_ids($feed));
+    }
+
+    /**
+     * El feed de una materia respeta el numero de pagina y el tamano de pagina.
+     *
+     * @covers \local_chuspasocial\local\post_service::get_course_feed
+     */
+    public function test_get_course_feed_respeta_la_paginacion(): void {
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $user = $generator->create_user();
+
+        $ids = [];
+        foreach ([1000, 2000, 3000, 4000, 5000] as $time) {
+            $ids[] = $this->create_test_post_at($user->id, $course->id, $time);
+        }
+
+        $this->assertSame([$ids[4], $ids[3]], $this->get_feed_ids(post_service::get_course_feed($course->id, 0, 2)));
+        $this->assertSame([$ids[2], $ids[1]], $this->get_feed_ids(post_service::get_course_feed($course->id, 1, 2)));
+        $this->assertSame([$ids[0]], $this->get_feed_ids(post_service::get_course_feed($course->id, 2, 2)));
+        $this->assertSame([], $this->get_feed_ids(post_service::get_course_feed($course->id, 3, 2)));
+    }
+
+    /**
+     * El feed de una materia no incluye publicaciones de otras materias ni del muro general.
+     *
+     * @covers \local_chuspasocial\local\post_service::get_course_feed
+     */
+    public function test_get_course_feed_excluye_publicaciones_de_otras_materias(): void {
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $othercourse = $generator->create_course();
+        $user = $generator->create_user();
+
+        $ownpostid = $this->create_test_post_at($user->id, $course->id, 1000);
+        $foreignpostid = $this->create_test_post_at($user->id, $othercourse->id, 2000);
+        $generalpostid = $this->create_test_post_at($user->id, 0, 3000);
+
+        $ids = $this->get_feed_ids(post_service::get_course_feed($course->id, 0, 10));
+
+        $this->assertSame([$ownpostid], $ids);
+        $this->assertNotContains($foreignpostid, $ids);
+        $this->assertNotContains($generalpostid, $ids);
+    }
+
+    /**
+     * El feed de una materia no incluye las publicaciones ocultas.
+     *
+     * @covers \local_chuspasocial\local\post_service::get_course_feed
+     */
+    public function test_get_course_feed_excluye_publicaciones_ocultas(): void {
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $user = $generator->create_user();
+
+        $visibleid = $this->create_test_post_at($user->id, $course->id, 1000, 0);
+        $hiddenid = $this->create_test_post_at($user->id, $course->id, 2000, 1);
+
+        $ids = $this->get_feed_ids(post_service::get_course_feed($course->id, 0, 10));
+
+        $this->assertSame([$visibleid], $ids);
+        $this->assertNotContains($hiddenid, $ids);
+    }
 }
