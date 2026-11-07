@@ -8,11 +8,18 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   moodle:
     name: Moodle 4.5 - ${{ matrix.version }} - ${{ matrix.database }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      DB: ${{ matrix.database }}
+      DB_USER: ${{ matrix.db_user }}
     strategy:
       fail-fast: false
       matrix:
@@ -33,6 +40,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: moodle
+          POSTGRES_DB: moodle
         ports:
           - 5432:5432
         options: >-
@@ -44,6 +52,7 @@ jobs:
         image: mariadb:10.11
         env:
           MYSQL_ROOT_PASSWORD: moodle
+          MYSQL_DATABASE: moodle
         ports:
           - 3306:3306
         options: >-
@@ -58,6 +67,13 @@ jobs:
           ref: ${{ matrix.revision }}
           path: plugin
           persist-credentials: false
+      - name: Obtener la misma revision de Moodle probada en Windows
+        uses: actions/checkout@v7
+        with:
+          repository: moodle/moodle
+          ref: c0690bbc765fccacd4956452cbff3f6aacad77c5
+          path: moodle
+          persist-credentials: false
       - name: PHP 8.1 como el CI del proyecto
         uses: shivammathur/setup-php@v2
         with:
@@ -70,13 +86,33 @@ jobs:
           echo "$GITHUB_WORKSPACE/ci/bin" >> "$GITHUB_PATH"
           echo "$GITHUB_WORKSPACE/ci/vendor/bin" >> "$GITHUB_PATH"
       - name: Instalar Moodle y el plugin con base real
-        env:
-          DB: ${{ matrix.database }}
-          DB_USER: ${{ matrix.db_user }}
-          MOODLE_BRANCH: MOODLE_405_STABLE
         run: |
-          moodle-plugin-ci install --plugin ./plugin/src --db-type="$DB" --db-host=127.0.0.1 --db-user="$DB_USER" --db-pass=moodle --db-name=moodle
-          git -C moodle rev-parse HEAD
+          mkdir -p "$RUNNER_TEMP/moodle-data" "$RUNNER_TEMP/moodle-phpunit"
+          ln -s "$GITHUB_WORKSPACE/plugin/src" moodle/local/chuspasocial
+          cat > moodle/config.php <<'PHP'
+          <?php
+          $CFG = new stdClass();
+          $CFG->dbtype = getenv('DB');
+          $CFG->dblibrary = 'native';
+          $CFG->dbhost = '127.0.0.1';
+          $CFG->dbname = 'moodle';
+          $CFG->dbuser = getenv('DB_USER');
+          $CFG->dbpass = 'moodle';
+          $CFG->prefix = 'mdl_';
+          $CFG->dboptions = ['dbpersist' => false, 'dbport' => '', 'dbsocket' => ''];
+          $CFG->wwwroot = 'http://localhost';
+          $CFG->dataroot = getenv('RUNNER_TEMP') . '/moodle-data';
+          $CFG->phpunit_prefix = 'phpu_';
+          $CFG->phpunit_dataroot = getenv('RUNNER_TEMP') . '/moodle-phpunit';
+          $CFG->admin = 'admin';
+          require_once __DIR__ . '/lib/setup.php';
+          PHP
+          cd moodle
+          php admin/tool/phpunit/cli/init.php --no-composer-self-update 2>&1 | tee ../init-results.log || {
+            summary=$(tail -15 ../init-results.log | tr '\n' ' ' | sed 's/%/%25/g')
+            printf '::error title=Inicializacion de Moodle::%s\n' "$summary"
+            exit 1
+          }
       - name: Sintaxis PHP del archivo de la issue
         run: php -l plugin/src/tests/local/post_tags_test.php
       - name: PHPCS sin warnings en el archivo modificado
@@ -92,7 +128,7 @@ jobs:
       - name: Resumen de resultados
         if: always()
         run: |
-          for result in tags-results.log suite-results.log; do
+          for result in init-results.log tags-results.log suite-results.log; do
             if [ -f "$result" ]; then
               printf '### %s\n\n```text\n' "$result" >> "$GITHUB_STEP_SUMMARY"
               tail -30 "$result" >> "$GITHUB_STEP_SUMMARY"
