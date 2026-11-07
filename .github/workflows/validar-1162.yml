@@ -94,7 +94,8 @@ jobs:
         id: install_moodle
         run: |
           mkdir -p "$RUNNER_TEMP/moodle-data" "$RUNNER_TEMP/moodle-phpunit"
-          ln -s "$GITHUB_WORKSPACE/plugin/src" moodle/local/chuspasocial
+          mkdir -p moodle/local/chuspasocial
+          cp -a plugin/src/. moodle/local/chuspasocial/
           cat > moodle/config.php <<'PHP'
           <?php
           $CFG = new stdClass();
@@ -127,11 +128,21 @@ jobs:
       - name: Ejecutar el archivo de etiquetas en Moodle
         if: ${{ !cancelled() && steps.install_moodle.outcome == 'success' }}
         working-directory: moodle
-        run: php vendor/bin/phpunit --colors=never --testdox --fail-on-warning --log-junit ../tags-results.xml local/chuspasocial/tests/local/post_tags_test.php 2>&1 | tee ../tags-results.log
+        run: |
+          php vendor/phpunit/phpunit/phpunit --colors=never --testdox --fail-on-warning --log-junit ../tags-results.xml local/chuspasocial/tests/local/post_tags_test.php 2>&1 | tee ../tags-results.log || {
+            summary=$(tail -20 ../tags-results.log | tr '\n' ' ' | sed 's/%/%25/g')
+            printf '::error title=PHPUnit de etiquetas::%s\n' "$summary"
+            exit 1
+          }
       - name: Ejecutar la suite completa del plugin
         if: ${{ !cancelled() && steps.install_moodle.outcome == 'success' }}
         working-directory: moodle
-        run: php vendor/bin/phpunit --colors=never --fail-on-warning --log-junit ../suite-results.xml --testsuite local_chuspasocial_testsuite 2>&1 | tee ../suite-results.log
+        run: |
+          php vendor/phpunit/phpunit/phpunit --colors=never --fail-on-warning --log-junit ../suite-results.xml --testsuite local_chuspasocial_testsuite 2>&1 | tee ../suite-results.log || {
+            summary=$(tail -20 ../suite-results.log | tr '\n' ' ' | sed 's/%/%25/g')
+            printf '::error title=Suite del plugin::%s\n' "$summary"
+            exit 1
+          }
       - name: Resumen de resultados
         if: always()
         run: |
