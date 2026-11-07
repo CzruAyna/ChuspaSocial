@@ -1,0 +1,110 @@
+name: Validacion Moodle de etiquetas 1162
+
+on:
+  push:
+    branches: [codex/validar-1162]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  moodle:
+    name: Moodle 4.5 - ${{ matrix.version }} - ${{ matrix.database }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [base, feature]
+        database: [mariadb, pgsql]
+        include:
+          - version: base
+            revision: 'cd7ce4ea7613cc012cc01146f4e44227745d2dd5'
+          - version: feature
+            revision: 'aaa18a12ccd14340836c42e01cee76b19e781468'
+          - database: mariadb
+            db_user: root
+          - database: pgsql
+            db_user: postgres
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: moodle
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MYSQL_ROOT_PASSWORD: moodle
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - name: Obtener el commit exacto
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ matrix.revision }}
+          path: plugin
+          persist-credentials: false
+      - name: PHP 8.1 como el CI del proyecto
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          extensions: pgsql, mysqli, intl, mbstring, xml, zip, gd, curl, soap
+          coverage: none
+      - name: Preparar Moodle Plugin CI
+        run: |
+          composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci ci '^4'
+          echo "$GITHUB_WORKSPACE/ci/bin" >> "$GITHUB_PATH"
+          echo "$GITHUB_WORKSPACE/ci/vendor/bin" >> "$GITHUB_PATH"
+      - name: Instalar Moodle y el plugin con base real
+        env:
+          DB: ${{ matrix.database }}
+          DB_USER: ${{ matrix.db_user }}
+          MOODLE_BRANCH: MOODLE_405_STABLE
+        run: |
+          moodle-plugin-ci install --plugin ./plugin/src --db-type="$DB" --db-host=127.0.0.1 --db-user="$DB_USER" --db-pass=moodle --db-name=moodle
+          git -C moodle rev-parse HEAD
+      - name: Sintaxis PHP del archivo de la issue
+        run: php -l plugin/src/tests/local/post_tags_test.php
+      - name: PHPCS sin warnings en el archivo modificado
+        if: ${{ matrix.version == 'feature' }}
+        run: phpcs --standard=moodle --warning-severity=1 plugin/src/tests/local/post_tags_test.php
+      - name: Ejecutar el archivo de etiquetas en Moodle
+        working-directory: moodle
+        run: php vendor/bin/phpunit --colors=never --testdox --fail-on-warning --log-junit ../tags-results.xml local/chuspasocial/tests/local/post_tags_test.php 2>&1 | tee ../tags-results.log
+      - name: Ejecutar la suite completa del plugin
+        if: ${{ !cancelled() }}
+        working-directory: moodle
+        run: php vendor/bin/phpunit --colors=never --fail-on-warning --log-junit ../suite-results.xml --testsuite local_chuspasocial_testsuite 2>&1 | tee ../suite-results.log
+      - name: Resumen de resultados
+        if: always()
+        run: |
+          for result in tags-results.log suite-results.log; do
+            if [ -f "$result" ]; then
+              printf '### %s\n\n```text\n' "$result" >> "$GITHUB_STEP_SUMMARY"
+              tail -30 "$result" >> "$GITHUB_STEP_SUMMARY"
+              printf '\n```\n' >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+      - name: Guardar informes PHPUnit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: moodle-${{ matrix.version }}-${{ matrix.database }}
+          path: |
+            *-results.xml
+            *-results.log
+          if-no-files-found: warn
