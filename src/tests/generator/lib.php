@@ -96,5 +96,31 @@ class local_chuspasocial_generator extends component_generator_base {
 
         return $post;
     }
+
+    /**
+     * Creates a comment for testing.
+     *
+     * @param array $record Comment data.
+     * @return \local_chuspasocial\local\persistent\comment
+     */
+    public function create_comment(array $record = []): \local_chuspasocial\local\persistent\comment {
+        if (empty($record['userid'])) {
+            $user = $this->datagenerator->create_user();
+            $record['userid'] = $user->id;
+        }
+
+        if (empty($record['postid'])) {
+            $post = $this->create_post(['userid' => $record['userid']]);
+            $record['postid'] = $post->get('id');
+        }
+
+        $record['content'] = $record['content'] ?? 'Comentario de prueba';
+        $record['contentformat'] = $record['contentformat'] ?? FORMAT_PLAIN;
+
+        $comment = new \local_chuspasocial\local\persistent\comment(0, (object) $record);
+        $comment->create();
+
+        return $comment;
+    }
 }
 
