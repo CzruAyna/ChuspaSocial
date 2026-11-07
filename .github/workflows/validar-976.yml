@@ -1,0 +1,172 @@
+name: Validacion Moodle del tipo de reaccion 976
+
+on:
+  push:
+    branches: [codex/validar-976]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  moodle:
+    name: Moodle 4.5 - ${{ matrix.database }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DB: ${{ matrix.database }}
+      DB_USER: ${{ matrix.db_user }}
+    strategy:
+      fail-fast: false
+      matrix:
+        database: [mariadb, pgsql]
+        include:
+          - database: mariadb
+            db_user: root
+          - database: pgsql
+            db_user: postgres
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: moodle
+          POSTGRES_DB: moodle
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MYSQL_ROOT_PASSWORD: moodle
+          MYSQL_DATABASE: moodle
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - name: Obtener la rama auxiliar con el commit exacto
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+          path: plugin
+          persist-credentials: false
+      - name: Obtener la misma revision de Moodle probada en Windows
+        uses: actions/checkout@v7
+        with:
+          repository: moodle/moodle
+          ref: c0690bbc765fccacd4956452cbff3f6aacad77c5
+          path: moodle
+          persist-credentials: false
+      - name: PHP 8.1 como el CI del proyecto
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          extensions: pgsql, mysqli, intl, mbstring, xml, zip, gd, curl, soap
+          coverage: none
+          ini-values: max_input_vars=5000
+      - name: Preparar Moodle Plugin CI
+        run: |
+          composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci ci '^4'
+          echo "$GITHUB_WORKSPACE/ci/bin" >> "$GITHUB_PATH"
+          echo "$GITHUB_WORKSPACE/ci/vendor/bin" >> "$GITHUB_PATH"
+      - name: Generar la configuracion regional requerida por PHPUnit
+        run: |
+          sudo locale-gen en_AU.UTF-8
+          locale -a | grep -ix 'en_AU.utf8'
+      - name: Instalar Moodle y el plugin con base real
+        id: install_moodle
+        run: |
+          mkdir -p "$RUNNER_TEMP/moodle-data" "$RUNNER_TEMP/moodle-phpunit"
+          mkdir -p moodle/local/chuspasocial
+          git -C plugin rev-parse HEAD^ | grep -Fx 18c6a9d99ea0b00db4e0df91d56ad0eb0f553268
+          test "$(git -C plugin diff --name-only HEAD^ HEAD -- src)" = ""
+          cp -a plugin/src/. moodle/local/chuspasocial/
+          cp plugin/.validation/976/toggle_reaction_validation_test.php moodle/local/chuspasocial/tests/external/
+          cat > moodle/config.php <<'PHP'
+          <?php
+          global $CFG;
+          $CFG = new stdClass();
+          $CFG->dbtype = getenv('DB');
+          $CFG->dblibrary = 'native';
+          $CFG->dbhost = '127.0.0.1';
+          $CFG->dbname = 'moodle';
+          $CFG->dbuser = getenv('DB_USER');
+          $CFG->dbpass = 'moodle';
+          $CFG->prefix = 'mdl_';
+          $CFG->dboptions = ['dbpersist' => false, 'dbport' => '', 'dbsocket' => ''];
+          $CFG->wwwroot = 'http://localhost';
+          $CFG->dataroot = getenv('RUNNER_TEMP') . '/moodle-data';
+          $CFG->phpunit_prefix = 'phpu_';
+          $CFG->phpunit_dataroot = getenv('RUNNER_TEMP') . '/moodle-phpunit';
+          $CFG->admin = 'admin';
+          require_once __DIR__ . '/lib/setup.php';
+          PHP
+          cd moodle
+          php admin/tool/phpunit/cli/init.php --no-composer-self-update 2>&1 | tee ../init-results.log || {
+            summary=$(tail -15 ../init-results.log | tr '\n' ' ' | sed 's/%/%25/g')
+            printf '::error title=Inicializacion de Moodle::%s\n' "$summary"
+            exit 1
+          }
+      - name: Sintaxis PHP del archivo de la issue
+        run: php -l plugin/src/classes/external/toggle_reaction.php
+      - name: PHPCS sin warnings en el archivo modificado
+        run: phpcs --standard=moodle --warning-severity=1 plugin/src/classes/external/toggle_reaction.php
+      - name: Ejecutar las pruebas de reacciones
+        if: ${{ !cancelled() && steps.install_moodle.outcome == 'success' }}
+        working-directory: moodle
+        run: |
+          for test in toggle_reaction_test toggle_reaction_validation_test; do
+            php vendor/phpunit/phpunit/phpunit --colors=never --testdox --fail-on-warning --log-junit "../$test-results.xml" "local/chuspasocial/tests/external/$test.php" 2>&1 | tee "../$test-results.log" || {
+              summary=$(tail -20 "../$test-results.log" | tr '\n' ' ' | sed 's/%/%25/g')
+              printf '::error title=PHPUnit de reacciones::%s\n' "$summary"
+              exit 1
+            }
+          done
+      - name: Resumen de resultados
+        if: always()
+        run: |
+          for result in init-results.log toggle_reaction_test-results.log toggle_reaction_validation_test-results.log; do
+            if [ -f "$result" ]; then
+              printf '### %s\n\n```text\n' "$result" >> "$GITHUB_STEP_SUMMARY"
+              tail -30 "$result" >> "$GITHUB_STEP_SUMMARY"
+              printf '\n```\n' >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          for report in ('toggle_reaction_test-results.xml', 'toggle_reaction_validation_test-results.xml'):
+              if not Path(report).is_file():
+                  continue
+              root = ET.parse(report).getroot()
+              cases = root.findall('.//testcase')
+              failed = [case.attrib['name'] for case in cases
+                        if case.find('error') is not None or case.find('failure') is not None]
+              skipped = sum(case.find('skipped') is not None for case in cases)
+              assertions = sum(int(case.attrib.get('assertions', 0)) for case in cases)
+              print(f'::notice title={report}::{len(cases)} tests, {assertions} assertions, '
+                    f'{len(failed)} failed, {skipped} skipped')
+              if failed:
+                  print('::warning title=Pruebas fallidas::' + ', '.join(failed[:20]))
+          PY
+      - name: Guardar informes PHPUnit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: moodle-${{ matrix.database }}
+          path: |
+            *-results.xml
+            *-results.log
+          if-no-files-found: warn
