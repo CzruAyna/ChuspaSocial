@@ -16,8 +16,6 @@
 
 namespace local_chuspasocial\local;
 
-defined('MOODLE_INTERNAL') || die();
-
 use advanced_testcase;
 use local_chuspasocial\local\persistent\post;
 
@@ -31,7 +29,6 @@ use local_chuspasocial\local\persistent\post;
  * @covers     \local_chuspasocial\local\post_service
  */
 final class post_tags_test extends advanced_testcase {
-
     /** @var string Componente de las etiquetas. */
     private const COMPONENT = 'local_chuspasocial';
 
@@ -97,12 +94,29 @@ final class post_tags_test extends advanced_testcase {
      * create_post() ya no recibe tags: las etiquetas se asignan con update_post().
      */
     public function test_create_post_with_tags(): void {
+        global $DB;
+
         $post = $this->create_post_as_author();
+        $postid = (int) $post->get('id');
         $this->assertSame([], $this->get_tags($post));
 
-        $this->save_tags($post, ['calculo', 'venta']);
+        $this->save_tags($post, ['matematica', 'calculo']);
 
-        $this->assertSame(['calculo', 'venta'], $this->get_tags($post));
+        $tags = \core_tag_tag::get_item_tags(self::COMPONENT, self::ITEMTYPE, $postid);
+        $names = array_map(static fn(\core_tag_tag $tag): string => $tag->get_display_name(false), array_values($tags));
+        sort($names);
+        $this->assertSame(['calculo', 'matematica'], $names);
+
+        $context = \context_course::instance((int) $post->get('courseid'));
+        foreach ($tags as $tag) {
+            $this->assertTrue($DB->record_exists('tag_instance', [
+                'component' => self::COMPONENT,
+                'itemtype' => self::ITEMTYPE,
+                'itemid' => $postid,
+                'contextid' => $context->id,
+                'tagid' => $tag->id,
+            ]));
+        }
     }
 
     /**
@@ -125,8 +139,11 @@ final class post_tags_test extends advanced_testcase {
 
         $post = $this->create_post_as_author();
         $postid = (int) $post->get('id');
-        $this->save_tags($post, ['calculo', 'venta']);
-        $this->assertCount(2, $this->get_tags($post));
+        $otherpost = post_service::create_post((int) $post->get('courseid'), self::CONTENT, FORMAT_HTML);
+        $this->save_tags($post, ['matematica', 'calculo']);
+        $this->save_tags($otherpost, ['matematica', 'fisica']);
+        $this->assertSame(['calculo', 'matematica'], $this->get_tags($post));
+        $this->assertSame(['fisica', 'matematica'], $this->get_tags($otherpost));
 
         post_service::delete_post($postid);
 
@@ -136,5 +153,6 @@ final class post_tags_test extends advanced_testcase {
             'itemtype' => self::ITEMTYPE,
             'itemid' => $postid,
         ]));
+        $this->assertSame(['fisica', 'matematica'], $this->get_tags($otherpost));
     }
 }
