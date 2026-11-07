@@ -30,6 +30,7 @@ use core_external\external_api;
 use core_external\external_function_parameters;
 use core_external\external_single_structure;
 use core_external\external_value;
+use local_chuspasocial\local\persistent\reaction;
 use local_chuspasocial\local\reaction_service;
 
 /**
@@ -40,6 +41,8 @@ use local_chuspasocial\local\reaction_service;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class toggle_reaction extends external_api {
+    /** @var string[] Reaction types recognised by the external API. */
+    private const ALLOWED_REACTION_TYPES = [reaction::TYPE_LIKE, 'celebrate', 'insightful'];
 
     /**
      * Describes the parameters of the function.
@@ -49,6 +52,12 @@ class toggle_reaction extends external_api {
     public static function execute_parameters(): external_function_parameters {
         return new external_function_parameters([
             'postid' => new external_value(PARAM_INT, 'Post id.'),
+            'reactiontype' => new external_value(
+                PARAM_RAW,
+                'Reaction type: like, celebrate or insightful. The current service processes only like.',
+                VALUE_DEFAULT,
+                reaction::TYPE_LIKE
+            ),
         ]);
     }
 
@@ -56,14 +65,29 @@ class toggle_reaction extends external_api {
      * Toggles the reaction to a post.
      *
      * @param int $postid Post id.
+     * @param string $reactiontype Reaction type. Defaults to like.
      * @return array
      */
-    public static function execute(int $postid): array {
+    public static function execute(int $postid, string $reactiontype = reaction::TYPE_LIKE): array {
         global $DB;
 
         $params = self::validate_parameters(self::execute_parameters(), [
             'postid' => $postid,
+            'reactiontype' => $reactiontype,
         ]);
+
+        if (!in_array($params['reactiontype'], self::ALLOWED_REACTION_TYPES, true)) {
+            throw new \invalid_parameter_exception('Invalid reaction type. Expected like, celebrate or insightful.');
+        }
+        if ($params['reactiontype'] !== reaction::TYPE_LIKE) {
+            throw new \moodle_exception(
+                'notavailable',
+                'error',
+                '',
+                null,
+                'This reaction type is not yet supported by the reaction service.'
+            );
+        }
 
         $post = $DB->get_record('local_chuspasocial_post', ['id' => $params['postid']], '*', MUST_EXIST);
 
