@@ -85,6 +85,10 @@ jobs:
           composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci ci '^4'
           echo "$GITHUB_WORKSPACE/ci/bin" >> "$GITHUB_PATH"
           echo "$GITHUB_WORKSPACE/ci/vendor/bin" >> "$GITHUB_PATH"
+      - name: Generar la configuracion regional requerida por PHPUnit
+        run: |
+          sudo locale-gen en_AU.UTF-8
+          locale -a | grep -ix 'en_AU.utf8'
       - name: Instalar Moodle y el plugin con base real
         run: |
           mkdir -p "$RUNNER_TEMP/moodle-data" "$RUNNER_TEMP/moodle-phpunit"
@@ -135,6 +139,23 @@ jobs:
               printf '\n```\n' >> "$GITHUB_STEP_SUMMARY"
             fi
           done
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          for report in ('tags-results.xml', 'suite-results.xml'):
+              if not Path(report).is_file():
+                  continue
+              root = ET.parse(report).getroot()
+              cases = root.findall('.//testcase')
+              failed = [case.attrib['name'] for case in cases
+                        if case.find('error') is not None or case.find('failure') is not None]
+              skipped = sum(case.find('skipped') is not None for case in cases)
+              assertions = sum(int(case.attrib.get('assertions', 0)) for case in cases)
+              print(f'::notice title={report}::{len(cases)} tests, {assertions} assertions, '
+                    f'{len(failed)} failed, {skipped} skipped')
+              if failed:
+                  print('::warning title=Pruebas fallidas::' + ', '.join(failed[:20]))
+          PY
       - name: Guardar informes PHPUnit
         if: always()
         uses: actions/upload-artifact@v4
